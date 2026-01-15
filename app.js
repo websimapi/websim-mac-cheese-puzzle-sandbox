@@ -123,8 +123,12 @@
     saveState();
   }
 
-  // Place object at canvas coords
+  // Place object at canvas coords (x,y are canvas pixels and are clamped to the visible area)
   function placeObject(type, x, y){
+    // clamp spawn position so items align with the visible canvas and don't spawn outside due to CSS scaling
+    const pad = 12;
+    x = Math.max(pad, Math.min(canvas.width - pad, x));
+    y = Math.max(pad, Math.min(canvas.height - pad, y));
     const scale = 1;
     let body, meta = {type};
     if (type === 'plank-small' || type === 'plank-med'){
@@ -198,24 +202,23 @@
     });
   });
 
-  // helper: get precise canvas coordinates from pointer event (handles offsets, touches, DPI scaling)
+  // helper: get precise canvas coordinates from pointer/touch event (uses client coordinates and accounts for CSS scaling/DPI)
   function getCanvasPos(ev){
-    // prefer offsetX/offsetY when available (gives coordinates relative to the event target)
-    if (typeof ev.offsetX === 'number' && typeof ev.offsetY === 'number') {
-      // offset values are in CSS pixels; scale to actual canvas pixels
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-      return {
-        x: ev.offsetX * scaleX,
-        y: ev.offsetY * scaleY
-      };
-    }
-    // fallback: compute from client coordinates
     const rect = canvas.getBoundingClientRect();
-    const x = (ev.clientX - rect.left) * (canvas.width / rect.width);
-    const y = (ev.clientY - rect.top) * (canvas.height / rect.height);
-    return { x, y };
+    // support PointerEvent and TouchEvent
+    const clientX = (ev.clientX != null) ? ev.clientX : (ev.touches && ev.touches[0] && ev.touches[0].clientX);
+    const clientY = (ev.clientY != null) ? ev.clientY : (ev.touches && ev.touches[0] && ev.touches[0].clientY);
+    // fallback to 0 if nothing available
+    const cx = clientX || 0;
+    const cy = clientY || 0;
+    const x = (cx - rect.left) * (canvas.width / rect.width);
+    const y = (cy - rect.top) * (canvas.height / rect.height);
+    // clamp to canvas interior to avoid spawning offscreen when clicking near edges
+    const pad = 12; // small padding so items don't intersect bounds immediately
+    return {
+      x: Math.max(pad, Math.min(canvas.width - pad, x)),
+      y: Math.max(pad, Math.min(canvas.height - pad, y))
+    };
   }
 
   // place when clicking/tapping canvas
