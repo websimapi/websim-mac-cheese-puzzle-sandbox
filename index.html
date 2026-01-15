@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Mac & Cheese — Puzzle Sandbox</title>
+<style>
+  :root{
+    --bg1:#E8F4F8; --bg2:#FFF9E6; --panel:#8B6F47;
+    --accent:#FFD700; --mouse:#8B4513; --success:#4CAF50;
+    --ui-radius:10px;
+  }
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial;}
+  body{background:linear-gradient(180deg,var(--bg1),var(--bg2));display:flex;align-items:center;justify-content:center;padding:10px;box-sizing:border-box;}
+  #game { width:100%; max-width:1100px; height:100%; max-height:760px; background:rgba(255,255,255,0.6); border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.15); display:grid; grid-template-rows:56px 1fr 120px; gap:10px; padding:12px; box-sizing:border-box; }
+  /* Top bar */
+  #topbar{display:flex;align-items:center;gap:10px;padding:6px 8px;}
+  #title{font-weight:700;display:flex;align-items:center;gap:8px}
+  #title .logo{width:40px;height:40px;border-radius:8px;background:linear-gradient(135deg,var(--accent),#FFC64D);display:flex;align-items:center;justify-content:center;font-weight:900;color:#6b3f00;font-size:18px;box-shadow:0 2px 6px rgba(0,0,0,0.12)}
+  .controls{margin-left:auto;display:flex;gap:8px;align-items:center}
+  button, .toggle{background:#fff;border:1px solid rgba(0,0,0,0.08);padding:8px 12px;border-radius:8px;cursor:pointer;box-shadow:0 2px 0 rgba(0,0,0,0.04);font-weight:600}
+  button:active{transform:translateY(1px)}
+  .small{padding:6px 8px;font-size:14px}
+  #status{margin-left:12px;font-weight:600;color:#444}
+  /* Middle layout */
+  #middle{display:grid;grid-template-columns:180px 1fr 180px;gap:12px;align-items:start;}
+  .toolbox{background:linear-gradient(180deg,#f6efe7,#fff);border-radius:10px;padding:8px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.6);height:100%;overflow:auto}
+  .toolbox h3{margin:4px 0 8px;font-size:14px;color:#5a3f1f}
+  .item{display:flex;align-items:center;gap:8px;padding:6px;border-radius:8px;margin-bottom:8px;background:rgba(255,255,255,0.6);cursor:pointer;border:1px dashed transparent}
+  .item:hover{border-color:rgba(0,0,0,0.06)}
+  .icon{width:48px;height:48px;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;color:#555}
+  #canvaswrap{display:flex;align-items:center;justify-content:center; background:linear-gradient(180deg,rgba(255,255,255,0.6),rgba(255,255,255,0.5));border-radius:10px;padding:10px;box-shadow:inset 0 2px 0 rgba(255,255,255,0.6)}
+  canvas{background:linear-gradient(180deg,#a7d8f0,#fef7d6);border-radius:6px;box-shadow:0 8px 18px rgba(0,0,0,0.12);touch-action:none}
+  /* Bottom toolbox */
+  #bottom{display:flex;gap:8px;align-items:center;justify-content:center;overflow:hidden}
+  .palette{display:flex;gap:8px;overflow:auto;padding:6px}
+  .pal-item{min-width:72px;min-height:72px;background:rgba(255,255,255,0.8);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:6px;font-size:13px;cursor:pointer;border:1px solid rgba(0,0,0,0.03)}
+  .pal-item:active{transform:translateY(1px)}
+  /* selected */
+  .selected{outline:3px solid rgba(255,215,0,0.35);box-shadow:0 6px 18px rgba(255,215,0,0.08) !important}
+  /* small UI */
+  #props{position:relative;padding:8px;display:flex;flex-direction:column;gap:6px}
+  #props input[type=range]{width:120px}
+  #message{position:absolute;right:12px;top:-8px;background:rgba(255,255,255,0.9);padding:6px 10px;border-radius:10px;border:1px solid rgba(0,0,0,0.06);font-weight:700}
+  /* responsive */
+  @media (max-width:767px){
+    #game{max-width:420px;max-height:calc(100vh - 20px);padding:10px;grid-template-rows:48px 1fr 110px}
+    #middle{grid-template-columns:1fr;gap:8px}
+    .toolbox{display:none}
+    canvas{width:100%;height:auto}
+    .pal-item{min-width:80px;min-height:80px}
+    #topbar{padding:6px}
+    #status{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="game" role="application" aria-label="Mac and Cheese physics sandbox">
+  <div id="topbar">
+    <div id="title"><div class="logo">M&C</div><div>Mac & Cheese</div></div>
+    <div class="controls">
+      <button id="btnStart" class="small" aria-pressed="false">Start</button>
+      <button id="btnStop" class="small">Pause</button>
+      <button id="btnReset" class="small">Reset</button>
+      <button id="btnClear" class="small">Clear</button>
+      <div id="status" aria-live="polite">Ready</div>
+    </div>
+  </div>
+
+  <div id="middle">
+    <aside class="toolbox" id="leftBox" aria-hidden="false">
+      <h3>Platforms & Structures</h3>
+      <div class="item pal-item" data-type="plank-small" tabindex="0"><div class="icon">▭</div><div>Plank S</div></div>
+      <div class="item pal-item" data-type="plank-med" tabindex="0"><div class="icon">▭▭</div><div>Plank M</div></div>
+      <div class="item pal-item" data-type="crate" tabindex="0"><div class="icon">▢</div><div>Crate</div></div>
+      <h3 style="margin-top:8px">Special</h3>
+      <div class="item pal-item" data-type="seesaw" tabindex="0"><div class="icon">⟁</div><div>Seesaw</div></div>
+    </aside>
+
+    <div id="canvaswrap">
+      <canvas id="canvas" width="800" height="600" aria-label="Play area"></canvas>
+      <div id="message" style="display:none">Mac reached the cheese! 🎉</div>
+    </div>
+
+    <aside class="toolbox" id="rightBox">
+      <h3>Physics Objects</h3>
+      <div class="item pal-item" data-type="ball-bouncy" tabindex="0"><div class="icon">●</div><div>Bouncy Ball</div></div>
+      <div class="item pal-item" data-type="ball-heavy" tabindex="0"><div class="icon">○</div><div>Heavy Ball</div></div>
+      <div class="item pal-item" data-type="spring" tabindex="0"><div class="icon">↯</div><div>Spring</div></div>
+      <h3 style="margin-top:8px">Characters</h3>
+      <div class="item pal-item" data-type="mac" tabindex="0"><div class="icon" style="background:linear-gradient(180deg,#f5dfb7,#ffd97a);border-radius:50%;">🐭</div><div>Mac</div></div>
+      <div class="item pal-item" data-type="cheese" tabindex="0"><div class="icon" style="background:linear-gradient(180deg,#ffd24d,#ffec99);">🧀</div><div>Cheese</div></div>
+    </aside>
+  </div>
+
+  <div id="bottom">
+    <div id="bottomPalette" class="palette" aria-hidden="false">
+      <div class="pal-item" data-type="rope">Rope</div>
+      <div class="pal-item" data-type="fan">Fan</div>
+      <div class="pal-item" data-type="balloon">Balloon</div>
+      <div class="pal-item" data-type="domino">Domino</div>
+    </div>
+    <div id="props" aria-hidden="true" style="width:220px">
+      <label style="font-size:13px;color:#5a3f1f">Selected: <span id="selName">—</span></label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <label style="font-size:12px">Static</label>
+        <input type="checkbox" id="propStatic" />
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <label style="font-size:12px">Rotation</label>
+        <input id="propRot" type="range" min="0" max="360" value="0"/>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button id="btnDelete" class="small">Delete</button>
+        <button id="btnDup" class="small">Duplicate</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Matter.js CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+<script>
+/* Minimal, single-file Mac & Cheese sandbox
+   Features:
+   - Drag from palette to place objects on canvas
+   - Start/Pause/Reset/Clear controls
+   - Matter.js physics world with Mac walking rightwards
+   - Win detection on collision with cheese
+   - Simple properties (static/dynamic, rotation)
+   - LocalStorage save/load of current contraption
+   Notes: Designed to be compact but extensible.
+*/
+
+(() => {
+  const { Engine, Render, World, Bodies, Body, Composite, Composites, Constraint, Events, Mouse, MouseConstraint, Runner, Vertices } = Matter;
+
+  // DOM
+  const canvas = document.getElementById('canvas');
+  const startBtn = document.getElementById('btnStart');
+  const stopBtn = document.getElementById('btnStop');
+  const resetBtn = document.getElementById('btnReset');
+  const clearBtn = document.getElementById('btnClear');
+  const status = document.getElementById('status');
+  const message = document.getElementById('message');
+  const paletteItems = document.querySelectorAll('.pal-item');
+  const bottomPalette = document.getElementById('bottomPalette');
+  const propsPanel = document.getElementById('props');
+  const selName = document.getElementById('selName');
+  const propStatic = document.getElementById('propStatic');
+  const propRot = document.getElementById('propRot');
+  const btnDelete = document.getElementById('btnDelete');
+  const btnDup = document.getElementById('btnDup');
+
+  // Engine & renderer
+  const engine = Engine.create();
+  engine.gravity.y = 1;
+  const world = engine.world;
+  const runner = Runner.create();
+
+  // Canvas scaling/responsive
+  function resizeCanvas(){
+    if (window.innerWidth < 768){
+      const w = Math.min(window.innerWidth - 28, 420);
+      canvas.width = w;
+      canvas.height = Math.round(w * 3 / 4);
+    } else {
+      canvas.width = 800;
+      canvas.height = 600;
+    }
+    render.canvas.width = canvas.width;
+    render.canvas.height = canvas.height;
+    Render.lookAt(render, {min: {x:0,y:0}, max: {x: canvas.width, y: canvas.height}});
+  }
+
+  const render = Render.create({
+    canvas: canvas,
+    engine: engine,
+    options: {
+      width: canvas.width,
+      height: canvas.height,
+      wireframes: false,
+      background: 'transparent',
+      pixelRatio: window.devicePixelRatio || 1
+    }
+  });
+
+  Render.run(render);
+  Runner.run(runner, engine);
+
+  // Ground bounds and walls
+  function addBounds(){
+    const W = canvas.width, H = canvas.height;
+    const thickness = 60;
+    const floor = Bodies.rectangle(W/2, H + thickness/2 - 6, W + 200, thickness, { isStatic:true, render:{fillStyle:'#7a5b38'}});
+    const left = Bodies.rectangle(-thickness/2, H/2, thickness, H*2, { isStatic:true, render:{visible:false} });
+    const right = Bodies.rectangle(W + thickness/2, H/2, thickness, H*2, { isStatic:true, render:{visible:false} });
+    World.add(world, [floor, left, right]);
+  }
+
+  // Object factory
+  const objects = []; // track placed items {id, body, meta}
+  let idCounter = 1;
+  let selectedType = null;
+  let selectedBody = null;
+  let isRunning = false;
+
+  const DEFAULTS = {
+    plankSmall: {w:120,h:16,fill:'#caa97f'},
+    plankMed: {w:220,h:16,fill:'#d3b785'},
+    crate: {w:56,h:56,fill:'#b07a4a'},
+    ballBouncy: {r:18,fill:'#ff6b6b',restitution:0.9,density:0.002},
+    ballHeavy: {r:20,fill:'#7f8c8d',restitution:0.2,density:0.01},
+    spring: {w:40,h:16,fill:'#9de0ad'},
+    seesaw: {w:220,h:12,fill:'#caa97f'},
+    mac: {r:18,fill:'#8B4513'},
+    cheese: {w:48,h:36,fill:'#FFD700'}
+  };
+
+  // Simple helper for rendering bodies with cartoon style
+  function styleBody(body, meta){
+    body.render.fillStyle = meta.fill || '#ccc';
+    body.render.strokeStyle = '#6b4a2f';
+    body.render.lineWidth = 2;
+  }
+
+  // Add initial tutorial puzzle: mac at left ground, cheese on right small platform, ramp
+  function loadTutorial(){
+    World.clear(world, false);
+    objects.length = 0;
+    addBounds();
+    const W = canvas.width, H = canvas.height;
+    // ground platform near right for cheese
+    const platform = Bodies.rectangle(W - 140, H - 120, 160, 12, { isStatic:true, render:{fillStyle:'#b07a4a'}});
+    World.add(world, platform);
+    // ramp
+    const ramp = Bodies.rectangle(W/2 - 40, H - 80, 300, 18, { isStatic:true, angle:-0.18, render:{fillStyle:'#d3b785'}});
+    World.add(world, ramp);
+    // Mac
+    const mac = Bodies.circle(80, H - 140, DEFAULTS.mac.r, { restitution:0, friction:0.8, frictionAir:0.02, label:'mac' });
+    styleBody(mac, DEFAULTS.mac);
+    // Cheese
+    const cheese = Bodies.rectangle(W - 140, H - 160, DEFAULTS.cheese.w, DEFAULTS.cheese.h, { isStatic:true, label:'cheese', render:{fillStyle:DEFAULTS.cheese.fill}});
+    World.add(world, [mac, cheese]);
+    objects.push({id: idCounter++, body:mac, meta:{type:'mac'}});
+    objects.push({id: idCounter++, body:cheese, meta:{type:'cheese'}});
+    // ramp and platform record
+    objects.push({id:idCounter++, body:ramp, meta:{type:'plank-med', static:true}});
+    objects.push({id:idCounter++, body:platform, meta:{type:'platform', static:true}});
+    selectedBody = null;
+    updatePropsPanel(null);
+    saveState();
+  }
+
+  // Place object at canvas coords
+  function placeObject(type, x, y){
+    const scale = 1;
+    let body, meta = {type};
+    if (type === 'plank-small' || type === 'plank-med'){
+      const key = type === 'plank-small' ? 'plankSmall' : 'plankMed';
+      const d = DEFAULTS[key];
+      body = Bodies.rectangle(x, y, d.w, d.h, { density:0.002, friction:0.6 });
+      styleBody(body, d);
+    } else if (type === 'crate'){
+      const d = DEFAULTS.crate;
+      body = Bodies.rectangle(x, y, d.w, d.h, { density:0.01, friction:0.6 });
+      styleBody(body, d);
+    } else if (type === 'ball-bouncy'){
+      const d = DEFAULTS.ballBouncy;
+      body = Bodies.circle(x, y, d.r, { restitution:d.restitution, density:d.density, friction:0.02 });
+      styleBody(body, d);
+    } else if (type === 'ball-heavy'){
+      const d = DEFAULTS.ballHeavy;
+      body = Bodies.circle(x, y, d.r, { restitution:d.restitution, density:d.density, friction:0.05 });
+      styleBody(body, d);
+    } else if (type === 'spring'){
+      const d = DEFAULTS.spring;
+      body = Bodies.rectangle(x, y, d.w, d.h, { restitution:0.6, density:0.001 });
+      styleBody(body, d);
+    } else if (type === 'seesaw'){
+      const d = DEFAULTS.seesaw;
+      // create fulcrum (static) + plank dynamic with constraint
+      const plank = Bodies.rectangle(x, y - 6, d.w, d.h, { density:0.001, friction:0.6 });
+      styleBody(plank, d);
+      const fulcrum = Bodies.rectangle(x, y + 6, 24, 12, { isStatic:true, render:{fillStyle:'#7a5b38'}});
+      World.add(world, [plank, fulcrum]);
+      const cons = Constraint.create({ bodyA: plank, pointB: { x:x, y:y+6 }, length:0, stiffness:1 });
+      World.add(world, cons);
+      objects.push({id:idCounter++, body:plank, meta:{type:'seesaw'}});
+      return;
+    } else if (type === 'mac'){
+      const d = DEFAULTS.mac;
+      body = Bodies.circle(x, y, d.r, { restitution:0, friction:0.8, frictionAir:0.02, label:'mac' });
+      styleBody(body, d);
+      meta.isCharacter = true;
+    } else if (type === 'cheese'){
+      const d = DEFAULTS.cheese;
+      body = Bodies.rectangle(x, y, d.w, d.h, { isStatic:true, label:'cheese' });
+      styleBody(body, d);
+      meta.isGoal = true;
+    } else if (type === 'rope' || type === 'fan' || type === 'balloon' || type === 'domino'){
+      // simple placeholders: small dynamic objects
+      body = Bodies.rectangle(x, y, 28, 12, { density:0.002 });
+      styleBody(body, {fill:'#cfc'});
+    } else {
+      body = Bodies.rectangle(x, y, 60, 20, { density:0.002 });
+      styleBody(body, {fill:'#ccc'});
+    }
+    if (body){
+      World.add(world, body);
+      objects.push({ id: idCounter++, body: body, meta: meta });
+    }
+  }
+
+  // Input: palette select and place on canvas
+  paletteItems.forEach(p => {
+    p.addEventListener('click', ()=> {
+      const t = p.dataset.type;
+      // highlight selection
+      document.querySelectorAll('.pal-item').forEach(n=>n.classList.remove('selected'));
+      p.classList.add('selected');
+      selectedType = t;
+      status.textContent = `Selected ${t.replace(/[-]/g,' ')}`;
+      propsPanel.style.opacity = 0.98;
+      propsPanel.setAttribute('aria-hidden','false');
+      selName.textContent = t;
+    });
+  });
+
+  // place when clicking canvas
+  canvas.addEventListener('pointerdown', (ev) => {
+    if (!selectedType) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = (ev.clientX - rect.left) * (canvas.width / rect.width);
+    const y = (ev.clientY - rect.top) * (canvas.height / rect.height);
+    placeObject(selectedType, x, y);
+    saveState();
+  });
+
+  // Mouse constraint for dragging bodies
+  const mouse = Mouse.create(canvas);
+  const mConstraint = MouseConstraint.create(engine, { mouse: mouse, constraint:{ stiffness:0.2, render:{visible:false} }});
+  World.add(world, mConstraint);
+
+  // selection by clicking bodies
+  Events.on(mConstraint, 'mousedown', (e) => {
+    const p = e.mouse.position;
+    const found = Composite.allBodies(world).find(b => Matter.Bounds.contains(b.bounds, p) && Matter.Vertices.contains(b.vertices, p));
+    if (found){
+      // find our tracked object
+      const wrapped = objects.find(o=>o.body === found);
+      if (wrapped){
+        selectedBody = wrapped;
+        updatePropsPanel(wrapped);
+      }
+    } else {
+      selectedBody = null;
+      updatePropsPanel(null);
+    }
+  });
+
+  // Props panel handlers
+  function updatePropsPanel(wrapped){
+    if (!wrapped){
+      propsPanel.style.opacity = 0.6;
+      propsPanel.setAttribute('aria-hidden','true');
+      selName.textContent = '—';
+      propStatic.checked = false;
+      propRot.value = 0;
+      return;
+    }
+    selName.textContent = wrapped.meta.type || 'object';
+    propStatic.checked = wrapped.body.isStatic;
+    const angle = Math.round((wrapped.body.angle || 0) * 180 / Math.PI) % 360;
+    propRot.value = (angle + 360) % 360;
+    propsPanel.style.opacity = 0.98;
+    propsPanel.setAttribute('aria-hidden','false');
+  }
+
+  propStatic.addEventListener('change', ()=> {
+    if (!selectedBody) return;
+    Body.setStatic(selectedBody.body, propStatic.checked);
+    selectedBody.meta.static = propStatic.checked;
+    saveState();
+  });
+  propRot.addEventListener('input', ()=> {
+    if (!selectedBody) return;
+    const deg = parseFloat(propRot.value);
+    Body.setAngle(selectedBody.body, deg * Math.PI / 180);
+    Body.setAngularVelocity(selectedBody.body, 0);
+    saveState();
+  });
+
+  btnDelete.addEventListener('click', ()=> {
+    if (!selectedBody) return;
+    World.remove(world, selectedBody.body);
+    const idx = objects.findIndex(o=>o===selectedBody);
+    if (idx>=0) objects.splice(idx,1);
+    selectedBody = null;
+    updatePropsPanel(null);
+    saveState();
+  });
+
+  btnDup.addEventListener('click', ()=> {
+    if (!selectedBody) return;
+    const b = selectedBody.body;
+    const pos = { x: b.position.x + 30, y: b.position.y - 20 };
+    const t = selectedBody.meta.type || 'dup';
+    placeObject(t, pos.x, pos.y);
+    saveState();
+  });
+
+  // Start/Stop/Reset/Clear
+  startBtn.addEventListener('click', ()=> {
+    isRunning = true;
+    startBtn.disabled = true;
+    status.textContent = 'Running';
+    startBtn.setAttribute('aria-pressed','true');
+  });
+  stopBtn.addEventListener('click', ()=> {
+    isRunning = false;
+    startBtn.disabled = false;
+    status.textContent = 'Paused';
+    startBtn.setAttribute('aria-pressed','false');
+  });
+  resetBtn.addEventListener('click', ()=> {
+    loadTutorial();
+    isRunning = false;
+    startBtn.disabled = false;
+    status.textContent = 'Reset';
+    message.style.display = 'none';
+  });
+  clearBtn.addEventListener('click', ()=> {
+    // remove all except bounds
+    World.clear(world, false);
+    objects.length = 0;
+    addBounds();
+    selectedBody = null;
+    updatePropsPanel(null);
+    status.textContent = 'Cleared';
+    saveState();
+  });
+
+  // Win detection (mac hits cheese)
+  Events.on(engine, 'collisionStart', (ev) => {
+    ev.pairs.forEach(pair => {
+      const a = pair.bodyA, b = pair.bodyB;
+      if ((a.label === 'mac' && b.label === 'cheese') || (b.label === 'mac' && a.label === 'cheese')){
+        // trigger win
+        message.textContent = 'Mac reached the cheese! 🎉';
+        message.style.display = 'block';
+        isRunning = false;
+        startBtn.disabled = false;
+        status.textContent = 'Success';
+        setTimeout(()=> message.style.display='none', 3000);
+      }
+    });
+  });
+
+  // Simple Mac "AI" applying rightward force when running
+  Events.on(runner, 'tick', ()=> {
+    if (!isRunning) return;
+    // find mac body
+    const macObj = objects.find(o=>o.meta && o.meta.type === 'mac' || (o.body && o.body.label === 'mac'));
+    const cheeseObj = objects.find(o=>(o.meta && o.meta.type === 'cheese') || (o.body && o.body.label === 'cheese'));
+    if (macObj){
+      // apply modest rightward force toward cheese x
+      const mac = macObj.body;
+      const targetX = cheeseObj ? cheeseObj.body.position.x : canvas.width - 60;
+      const dir = Math.sign(targetX - mac.position.x || 1);
+      // only apply if grounded-ish
+      const onGround = mac.position.y >= canvas.height - 110 || mac.velocity.y < 0.5 && mac.velocity.y > -0.5;
+      if (onGround){
+        Body.applyForce(mac, mac.position, { x: 0.0009 * dir, y: 0 });
+        // small step forward rotation reset
+        Body.setAngularVelocity(mac, 0);
+      }
+    }
+  });
+
+  // Save/load to localStorage
+  function saveState(){
+    try {
+      const serial = objects.map(o=>{
+        const b = o.body;
+        return { id:o.id, type:o.meta.type, x:b.position.x, y:b.position.y, angle:b.angle, isStatic: b.isStatic || false };
+      });
+      localStorage.setItem('macAndCheese_save_v1', JSON.stringify(serial));
+    } catch(e){}
+  }
+  function loadState(){
+    const raw = localStorage.getItem('macAndCheese_save_v1');
+    if (!raw) return false;
+    try {
+      const arr = JSON.parse(raw);
+      World.clear(world, false);
+      objects.length = 0;
+      addBounds();
+      arr.forEach(it=>{
+        placeObject(it.type, it.x, it.y);
+        // set angle and static
+        const last = objects[objects.length-1];
+        if (last){
+          Body.setAngle(last.body, it.angle || 0);
+          if (it.isStatic) Body.setStatic(last.body, true);
+        }
+      });
+      return true;
+    } catch(e){ return false; }
+  }
+
+  // Setup initial scene
+  addBounds();
+  if (!loadState()) loadTutorial();
+  resizeCanvas();
+
+  // Save on unload
+  window.addEventListener('beforeunload', ()=> saveState());
+  window.addEventListener('resize', ()=> { resizeCanvas(); Render.lookAt(render, {min:{x:0,y:0}, max:{x:canvas.width,y:canvas.height}}); });
+
+  // Basic accessibility: keyboard palette navigation
+  document.addEventListener('keydown', (e)=>{
+    if (e.key === 'Escape'){ selectedType = null; document.querySelectorAll('.pal-item').forEach(n=>n.classList.remove('selected')); status.textContent='Ready'; }
+  });
+
+  // Small UI polish: hide message after a while
+  setInterval(()=> {
+    // throttle saving occasionally
+    saveState();
+  }, 5000);
+
+})();
+</script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
