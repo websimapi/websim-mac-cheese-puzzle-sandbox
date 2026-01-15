@@ -29,19 +29,31 @@
   const world = engine.world;
   const runner = Runner.create();
 
-  // Canvas scaling/responsive
+  // Canvas scaling/responsive — ensure CSS size matches pixel size to avoid coordinate mismatches
   function resizeCanvas(){
     if (window.innerWidth < 768){
       const w = Math.min(window.innerWidth - 28, 420);
-      canvas.width = w;
-      canvas.height = Math.round(w * 3 / 4);
+      canvas.width = w * (window.devicePixelRatio || 1);
+      canvas.height = Math.round(w * 3 / 4) * (window.devicePixelRatio || 1);
+      // keep displayed size in CSS pixels equal to intended logical size
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${Math.round(w * 3 / 4)}px`;
     } else {
-      canvas.width = 800;
-      canvas.height = 600;
+      const w = 800;
+      const h = 600;
+      canvas.width = w * (window.devicePixelRatio || 1);
+      canvas.height = h * (window.devicePixelRatio || 1);
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
     }
+    // sync renderer options and canvas reference
     render.canvas.width = canvas.width;
     render.canvas.height = canvas.height;
-    Render.lookAt(render, {min: {x:0,y:0}, max: {x: canvas.width, y: canvas.height}});
+    render.options.width = canvas.width;
+    render.options.height = canvas.height;
+    render.options.pixelRatio = window.devicePixelRatio || 1;
+    // update displayed bounds so matter maps pointer positions correctly
+    Render.lookAt(render, { min: { x:0, y:0 }, max: { x: canvas.width, y: canvas.height }});
   }
 
   const render = Render.create({
