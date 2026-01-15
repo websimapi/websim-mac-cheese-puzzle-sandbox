@@ -24,7 +24,8 @@
 
   // Engine & renderer
   const engine = Engine.create();
-  engine.gravity.y = 1;
+  // start with gravity off so placed objects don't fall until the player starts the round
+  engine.gravity.y = 0;
   const world = engine.world;
   const runner = Runner.create();
 
@@ -284,12 +285,16 @@
   startBtn.addEventListener('click', ()=> {
     isRunning = true;
     startBtn.disabled = true;
+    // enable gravity when the round starts
+    engine.gravity.y = 1;
     status.textContent = 'Running';
     startBtn.setAttribute('aria-pressed','true');
   });
   stopBtn.addEventListener('click', ()=> {
     isRunning = false;
     startBtn.disabled = false;
+    // pause gravity when pausing
+    engine.gravity.y = 0;
     status.textContent = 'Paused';
     startBtn.setAttribute('aria-pressed','false');
   });
@@ -297,6 +302,8 @@
     loadTutorial();
     isRunning = false;
     startBtn.disabled = false;
+    // reset keeps gravity off until player starts again
+    engine.gravity.y = 0;
     status.textContent = 'Reset';
     message.style.display = 'none';
   });
@@ -307,6 +314,8 @@
     addBounds();
     selectedBody = null;
     updatePropsPanel(null);
+    // keep gravity off after clearing so player can place without objects falling
+    engine.gravity.y = 0;
     status.textContent = 'Cleared';
     saveState();
   });
