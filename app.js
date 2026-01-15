@@ -198,13 +198,31 @@
     });
   });
 
-  // place when clicking canvas
-  canvas.addEventListener('pointerdown', (ev) => {
-    if (!selectedType) return;
+  // helper: get precise canvas coordinates from pointer event (handles offsets, touches, DPI scaling)
+  function getCanvasPos(ev){
+    // prefer offsetX/offsetY when available (gives coordinates relative to the event target)
+    if (typeof ev.offsetX === 'number' && typeof ev.offsetY === 'number') {
+      // offset values are in CSS pixels; scale to actual canvas pixels
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      return {
+        x: ev.offsetX * scaleX,
+        y: ev.offsetY * scaleY
+      };
+    }
+    // fallback: compute from client coordinates
     const rect = canvas.getBoundingClientRect();
     const x = (ev.clientX - rect.left) * (canvas.width / rect.width);
     const y = (ev.clientY - rect.top) * (canvas.height / rect.height);
-    placeObject(selectedType, x, y);
+    return { x, y };
+  }
+
+  // place when clicking/tapping canvas
+  canvas.addEventListener('pointerdown', (ev) => {
+    if (!selectedType) return;
+    const pos = getCanvasPos(ev);
+    placeObject(selectedType, pos.x, pos.y);
     saveState();
   });
 
